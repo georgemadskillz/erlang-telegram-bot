@@ -42,8 +42,9 @@ handle_call({get, Path}, _From, State) ->
     Response = gun:await(ConnPid, Ref),
     {ok, Body} = gun:await_body(ConnPid, Ref),
     io:format("~p get -> Body=~p~n", [self(), Body]),
+    Decoded = jsx:decode(Body, []),
 
-    {reply, {ok, Response}, State};
+    {reply, {ok, Decoded}, State};
 handle_call(Request, From, State) ->
     io:format("~p Unhandled call Request=~p, From=~p~n", [self(), Request, From]),
     {reply, ignored, State}.
