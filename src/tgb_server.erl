@@ -1,12 +1,11 @@
--module(telegram_bot).
+-module(tgb_server).
 
 -behaviour(gen_server).
 
 %% API
 -export([start_link/0]).
--export([set_token/1]).
 -export([get_me/0]).
--export([get_updates/0]).
+-export([handle_updates/1]).
 
 %% Callbacks
 -export([init/1,
@@ -21,14 +20,11 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-set_token(Token) ->
-    gen_server:call(?MODULE, {set_token, Token}).
-
 get_me() ->
     gen_server:call(?MODULE, get_me).
 
-get_updates() ->
-    gen_server:call(?MODULE, get_updates).
+handle_updates(Updates) ->
+    gen_server:cast(?MODULE, {updates, Updates}).
 
 %% Callbacks
 
@@ -36,23 +32,26 @@ init([]) ->
     application:ensure_all_started(gun),
     {ok, #{token => undefined}}.
 
-handle_call({set_token, Token}, _From, State) ->
-    {reply, ok, State#{token := Token}};
-handle_call(get_me, _From, #{token := Token} = State) ->
-    io:format("~p get_me call..~n", [self()]),
-    {ok, Response} = request("/bot" ++ Token ++ "/getMe"),
-    Decoded = decode(Response),
-    {reply, {ok, Decoded}, State};
-handle_call(get_updates, _From, #{token := Token} = State) ->
-    io:format("~p get_updates call..~n", [self()]),
-    {ok, Response} = request("/bot" ++ Token ++ "/getUpdates"),
-    Decoded = decode(Response),
-    {reply, {ok, Decoded}, State};
+handle_call(get_me, _From, State) ->
+    io:format("~p get_me call..~n", [?MODULE]),
+    case tgb_token_keeper:get_token() of
+        undefined ->
+            io:format("~p Cannot perform action, token is undefined!~n", [?MODULE]),
+            {reply, {error, {token, undefined}}, State};
+        Token ->
+            {ok, Response} = get_request("/bot" ++ Token ++ "/getMe"),
+            Decoded = decode(Response),
+            {reply, {ok, Decoded}, State}
+    end;
 handle_call(Request, From, State) ->
-    io:format("~p Unhandled call Request=~p, From=~p~n", [self(), Request, From]),
+    io:format("~p Unhandled call Request=~p, From=~p~n", [?MODULE, Request, From]),
     {reply, ignored, State}.
 
-handle_cast(_Msg, State) ->
+handle_cast({updates, Updates}, State) ->
+    io:format("~p Updates=~p~n", [?MODULE, Updates]),
+    {noreply, State};
+handle_cast(Msg, State) ->
+    io:format("~p Unhandled cast Msg=~p~n", [?MODULE, Msg]),
     {noreply, State}.
 
 handle_info(_Info, State) ->
@@ -69,11 +68,11 @@ code_change(_OldVsn, State, _Extra) ->
 decode(Json) ->
     jsx:decode(Json, []).
 
-request(Request) ->
+get_request(Request) ->
     {ok, ConnPid} = gun:open("api.telegram.org", 443, #{transport => tls}),
-    io:format("~p Connect api.telegram.org..~n", [self()]),
+    io:format("~p Connect api.telegram.org..~n", [?MODULE]),
     {ok, _Proto} = gun:await_up(ConnPid),
-    io:format("~p Connected..~n", [self()]),
+    io:format("~p Connected..~n", [?MODULE]),
 
     Ref = gun:get(ConnPid, Request),
     {response, _, _, _} = gun:await(ConnPid, Ref),

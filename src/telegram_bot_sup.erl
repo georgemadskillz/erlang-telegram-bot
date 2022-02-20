@@ -21,8 +21,16 @@ init([]) ->
         preiod => 5,
         auto_shutdown => never
     },
-    TelegramBot = #{
-        id => telegram_bot,
-        start => {telegram_bot, start_link, []}
+    Server = #{
+        id => tgb_server,
+        start => {tgb_server, start_link, []}
     },
-    {ok, {SupFlags, [TelegramBot]}}.
+    Updater = #{
+        id => tgb_updater,
+        start => {tgb_updater, start_link, []}
+    },
+    TokenKeeper = #{
+        id => tgb_token_keeper,
+        start => {tgb_token_keeper, start_link, []}
+    },
+    {ok, {SupFlags, [Server, Updater, TokenKeeper]}}.
