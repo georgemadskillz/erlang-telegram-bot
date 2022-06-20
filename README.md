@@ -1,7 +1,9 @@
 # erlang-telegram-bot
-Just a pet project
 
-`$rebar3 shell`
+Server for processinf a multiple telegram bots.
+Just a pet project.
 
-`client:set_token("123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11").`
-`client:get_me().`
+1. Edit `template_sys.config` file (set up API token for your bots and bots names)
+2. `$rebar3 shell`
+
+Bots API callbacks and further logic under construction..
